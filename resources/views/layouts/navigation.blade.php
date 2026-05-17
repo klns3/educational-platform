@@ -7,6 +7,7 @@
         'results' => 'Результаты',
         'messages' => 'Сообщения',
         'tickets' => 'Заявки',
+        'ai' => 'ИИ-аналитика',
         'notifications' => 'Уведомления',
         'logs' => 'Журнал',
         'users' => 'Пользователи',
@@ -33,6 +34,10 @@
         ['route' => route('messages.index'), 'active' => 'messages.*', 'label' => $navLabels['messages'], 'icon' => 'messages', 'messages' => true],
         ['route' => route('support-tickets.index'), 'active' => 'support-tickets.*', 'label' => $navLabels['tickets'], 'icon' => 'tickets'],
     ];
+
+    if (in_array(Auth::user()->role, ['admin', 'teacher'], true)) {
+        $mainNavItems[] = ['route' => route('ai-analytics.index'), 'active' => 'ai-analytics.*', 'label' => $navLabels['ai'], 'icon' => 'ai'];
+    }
 
     $adminNavItems = [
         ['route' => route('action-logs.index'), 'active' => 'action-logs.*', 'label' => $navLabels['logs'], 'icon' => 'logs'],
@@ -94,6 +99,9 @@
                                             @break
                                         @case('messages')
                                             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7A8.4 8.4 0 0 1 4 11.5a8.5 8.5 0 1 1 17 0Z"/></svg>
+                                            @break
+                                        @case('ai')
+                                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v3m0 12v3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12M3 12h3m12 0h3M5.64 18.36l2.12-2.12m8.48-8.48 2.12-2.12M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
                                             @break
                                         @default
                                             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6M4 6l6 6-6 6"/></svg>
@@ -276,6 +284,9 @@
                     <a href="{{ route('results.my') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('results.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['results'] }}</a>
                     <a href="{{ route('messages.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('messages.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['messages'] }}</a>
                     <a href="{{ route('support-tickets.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('support-tickets.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['tickets'] }}</a>
+                    @if(in_array(Auth::user()->role, ['admin', 'teacher'], true))
+                        <a href="{{ route('ai-analytics.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('ai-analytics.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['ai'] }}</a>
+                    @endif
 
                     @if(Auth::user()->role === 'admin')
                         <a href="{{ route('action-logs.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('action-logs.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['logs'] }}</a>

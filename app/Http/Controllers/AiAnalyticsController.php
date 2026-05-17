@@ -6,104 +6,26 @@ use App\Models\SupportTicket;
 use App\Models\Test;
 use App\Models\TestAttempt;
 use App\Models\User;
+use App\Services\AiAnalyticsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\File;
-use Symfony\Component\Process\Process;
 
 class AiAnalyticsController extends Controller
 {
-    public function index()
+    public function index(AiAnalyticsService $aiAnalyticsService)
     {
         $user = Auth::user();
 
         $studentsData = $this->buildStudentsData($user);
         $testsData = $this->buildTestsData($user);
-
-        $inputPath = storage_path('app/ai/input/data.json');
-        $outputPath = storage_path('app/ai/output/result.json');
-        $scriptPath = str_replace('\\', '/', base_path('ai/analyze.py'));
-
-        File::ensureDirectoryExists(dirname($inputPath));
-        File::ensureDirectoryExists(dirname($outputPath));
-
-        File::put($inputPath, json_encode([
-            'students' => $studentsData,
-            'tests' => $testsData,
-        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-
-        if (File::exists($outputPath)) {
-            File::delete($outputPath);
-        }
-
-        $pythonCommand = array_values(array_filter([
-            env('PYTHON_PATH', 'py'),
-            env('PYTHON_VERSION', '-3.12'),
-            $scriptPath,
-            $inputPath,
-            $outputPath,
-        ], fn ($part) => $part !== null && $part !== ''));
-
-        $process = new Process($pythonCommand);
-
-        $processEnv = array_filter([
-            'SystemRoot' => getenv('SystemRoot') ?: ($_SERVER['SystemRoot'] ?? 'C:\\Windows'),
-            'WINDIR' => getenv('WINDIR') ?: ($_SERVER['WINDIR'] ?? 'C:\\Windows'),
-            'PATH' => getenv('PATH') ?: ($_SERVER['PATH'] ?? ($_SERVER['Path'] ?? null)),
-            'PYTHONUTF8' => '1',
-            'PYTHONIOENCODING' => 'utf-8',
-        ], fn ($value) => is_string($value) && $value !== '');
-
-        $process->setEnv($processEnv);
-
-        $process->setTimeout(60);
-        $process->run();
-
-        if (!$process->isSuccessful() || !File::exists($outputPath)) {
-            return view('ai-analytics.index', [
-                'studentsCount' => 0,
-                'riskCount' => 0,
-                'stableCount' => 0,
-                'averageSuccessProbability' => 0,
-                'studentAnalytics' => collect(),
-                'clusteredStudents' => collect(),
-                'testAnalytics' => collect(),
-                'expertRecommendations' => collect([
-                    [
-                        'type' => 'danger',
-                        'title' => 'Ошибка запуска ИИ-модуля',
-                        'description' => trim($process->getErrorOutput() ?: $process->getOutput() ?: 'Python-скрипт не вернул результат.'),
-                    ],
-                ]),
-            ]);
-        }
-
-        $result = json_decode(File::get($outputPath), true);
-
-        if (!is_array($result)) {
-            return view('ai-analytics.index', [
-                'studentsCount' => 0,
-                'riskCount' => 0,
-                'stableCount' => 0,
-                'averageSuccessProbability' => 0,
-                'studentAnalytics' => collect(),
-                'clusteredStudents' => collect(),
-                'testAnalytics' => collect(),
-                'expertRecommendations' => collect([
-                    [
-                        'type' => 'danger',
-                        'title' => 'Ошибка чтения результата ИИ-модуля',
-                        'description' => 'Файл result.json создан, но его не удалось корректно прочитать.',
-                    ],
-                ]),
-            ]);
-        }
+        $result = $aiAnalyticsService->analyze($studentsData, $testsData);
 
         $studentAnalytics = $this->mapStudentAnalytics($result['students'] ?? []);
         $clusteredStudents = $studentAnalytics->groupBy('cluster_name');
         $testAnalytics = $this->mapTestAnalytics($result['tests'] ?? []);
         $expertRecommendations = collect($result['recommendations'] ?? []);
+        $modelQuality = $result['model_quality'] ?? [];
 
         return view('ai-analytics.index', [
             'studentsCount' => $studentAnalytics->count(),
@@ -125,6 +47,7 @@ class AiAnalyticsController extends Controller
             'clusteredStudents' => $clusteredStudents,
             'testAnalytics' => $testAnalytics,
             'expertRecommendations' => $expertRecommendations,
+            'modelQuality' => $modelQuality,
         ]);
     }
 

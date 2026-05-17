@@ -39,6 +39,62 @@
                 </div>
             </div>
 
+            @php
+                $modelQuality = $modelQuality ?? [];
+                $formatMetric = fn ($value) => $value === null || $value === ''
+                    ? 'Недостаточно данных для расчёта'
+                    : round((float) $value, 3);
+            @endphp
+
+            <div class="bg-white/10 border border-white/10 rounded-xl p-6 mb-8">
+                <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-white">
+                            Качество модели
+                        </h2>
+                        <p class="text-sm text-slate-400 mt-1">
+                            {{ $modelQuality['explanation'] ?? 'Информация о качестве модели недоступна.' }}
+                        </p>
+                    </div>
+
+                    <span class="inline-flex w-fit rounded-lg px-3 py-1 text-sm font-semibold {{ ($modelQuality['mode'] ?? 'expert') === 'ml' ? 'bg-emerald-500/20 text-emerald-200' : 'bg-amber-500/20 text-amber-200' }}">
+                        Режим: {{ ($modelQuality['mode'] ?? 'expert') === 'ml' ? 'ML' : 'экспертный' }}
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 mt-5 text-sm">
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">Студентов</p>
+                        <p class="text-white font-semibold mt-1">{{ $modelQuality['students_count'] ?? $studentsCount }}</p>
+                    </div>
+
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">Образцов</p>
+                        <p class="text-white font-semibold mt-1">{{ $modelQuality['samples_count'] ?? $studentsCount }}</p>
+                    </div>
+
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">Accuracy</p>
+                        <p class="text-white font-semibold mt-1">{{ $formatMetric($modelQuality['accuracy'] ?? null) }}</p>
+                    </div>
+
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">Precision</p>
+                        <p class="text-white font-semibold mt-1">{{ $formatMetric($modelQuality['precision'] ?? null) }}</p>
+                    </div>
+
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">Recall</p>
+                        <p class="text-white font-semibold mt-1">{{ $formatMetric($modelQuality['recall'] ?? null) }}</p>
+                    </div>
+
+                    <div class="border border-white/10 rounded-lg p-3">
+                        <p class="text-slate-400">F1-score</p>
+                        <p class="text-white font-semibold mt-1">{{ $formatMetric($modelQuality['f1_score'] ?? null) }}</p>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div class="lg:col-span-2 bg-white/10 border border-white/10 rounded-xl p-6">
                     <h2 class="text-xl font-bold text-white mb-4">
@@ -205,15 +261,7 @@
                                     </h3>
 
                                     <p class="text-sm text-slate-400 mt-1">
-                                        @if($clusterName === 'Кластер 1')
-                                            Активные и успешные студенты
-                                        @elseif($clusterName === 'Кластер 2')
-                                            Активные, но с низкими результатами
-                                        @elseif($clusterName === 'Кластер 3')
-                                            Успешные, но недостаточно активные
-                                        @else
-                                            Пассивные или проблемные студенты
-                                        @endif
+                                        {{ $students->first()['cluster_description'] ?? 'Смешанная группа студентов' }}
                                     </p>
                                 </div>
 
