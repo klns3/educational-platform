@@ -33,7 +33,7 @@ class LargeDemoSeeder extends Seeder
         DB::transaction(function () {
             $this->clearDemoData();
 
-            $admin = $this->createUser('demo.admin@example.com', 'Demo Admin', 'admin');
+            $admin = $this->createUser('demo.admin@example.com', 'Демо Администратор', 'admin');
             $teachers = $this->createTeachers();
             $groups = $this->createGroups();
             $courses = $this->createCourses($teachers);
@@ -51,17 +51,21 @@ class LargeDemoSeeder extends Seeder
             $this->createActionLogs($admin, $teachers, $students);
         });
 
-        $this->command?->info('Large demo data created.');
-        $this->command?->line('Admin: demo.admin@example.com / password');
-        $this->command?->line('Teacher: demo.teacher01@example.com / password');
-        $this->command?->line('Student: demo.student001@example.com / password');
+        $this->command?->info('Большая демонстрационная база создана.');
+        $this->command?->line('Администратор: demo.admin@example.com / password');
+        $this->command?->line('Преподаватель: demo.teacher01@example.com / password');
+        $this->command?->line('Студент: demo.student001@example.com / password');
     }
 
     private function clearDemoData(): void
     {
         $demoUserIds = User::where('email', 'like', 'demo.%@example.com')->pluck('id');
-        $demoCourseIds = Course::where('title', 'like', '[DEMO]%')->pluck('id');
-        $demoGroupIds = ClassGroup::where('name', 'like', 'DEMO-%')->pluck('id');
+        $demoCourseIds = Course::where('title', 'like', '[DEMO]%')
+            ->orWhere('title', 'like', '[ДЕМО]%')
+            ->pluck('id');
+        $demoGroupIds = ClassGroup::where('name', 'like', 'DEMO-%')
+            ->orWhere('name', 'like', 'ДЕМО-%')
+            ->pluck('id');
 
         $attemptIds = TestAttempt::whereIn('user_id', $demoUserIds)
             ->orWhereIn('test_id', Test::whereIn('course_id', $demoCourseIds)->select('id'))
@@ -93,10 +97,10 @@ class LargeDemoSeeder extends Seeder
     private function createTeachers(): array
     {
         $names = [
-            'Elena Morozova',
-            'Sergey Ivanov',
-            'Anna Petrova',
-            'Dmitry Sokolov',
+            'Елена Морозова',
+            'Сергей Иванов',
+            'Анна Петрова',
+            'Дмитрий Соколов',
         ];
 
         return collect($names)
@@ -112,8 +116,8 @@ class LargeDemoSeeder extends Seeder
     {
         return collect(range(1, 8))
             ->map(fn (int $index) => ClassGroup::create([
-                'name' => sprintf('DEMO-%03d', 100 + $index),
-                'description' => 'Demo study group for full platform testing.',
+                'name' => sprintf('ДЕМО-%03d', 100 + $index),
+                'description' => 'Демонстрационная учебная группа для полной проверки платформы.',
             ]))
             ->all();
     }
@@ -121,18 +125,18 @@ class LargeDemoSeeder extends Seeder
     private function createCourses(array $teachers): array
     {
         $titles = [
-            'Web Development Basics',
-            'PHP and Laravel Practice',
-            'Databases and SQL',
-            'Frontend Interfaces',
-            'Data Analysis',
-            'Machine Learning Basics',
-            'Information Security',
-            'Software Testing',
-            'Project Management',
-            'Digital Learning Tools',
-            'Algorithms and Structures',
-            'Final Qualification Project',
+            'Основы веб-разработки',
+            'Практика PHP и Laravel',
+            'Базы данных и SQL',
+            'Интерфейсы веб-приложений',
+            'Анализ данных',
+            'Основы машинного обучения',
+            'Информационная безопасность',
+            'Тестирование программного обеспечения',
+            'Управление проектами',
+            'Цифровые образовательные инструменты',
+            'Алгоритмы и структуры данных',
+            'Выпускной квалификационный проект',
         ];
 
         return collect($titles)
@@ -140,8 +144,8 @@ class LargeDemoSeeder extends Seeder
                 $teacher = $teachers[$index % count($teachers)];
 
                 return Course::create([
-                    'title' => '[DEMO] ' . $title,
-                    'description' => 'Large demo course with materials, tests, students and activity history.',
+                    'title' => '[ДЕМО] ' . $title,
+                    'description' => 'Демонстрационный курс с материалами, тестами, студентами и историей активности.',
                     'teacher_id' => $teacher->id,
                 ]);
             })
@@ -155,12 +159,12 @@ class LargeDemoSeeder extends Seeder
                 Material::create([
                     'course_id' => $course->id,
                     'author_id' => $teachers[$courseIndex % count($teachers)]->id,
-                    'title' => sprintf('Demo material %02d: %s', $index, $course->title),
+                    'title' => sprintf('Материал %02d: %s', $index, Str::after($course->title, '[ДЕМО] ')),
                     'content' => implode("\n\n", [
-                        '## Learning goals',
-                        'This material explains the topic through a practical task, checklist and short control questions.',
-                        '## Practice',
-                        'Students should read the theory, complete the exercise and prepare questions for the lesson.',
+                        '## Цели занятия',
+                        'Материал объясняет тему через практическое задание, контрольный список и короткие вопросы для самопроверки.',
+                        '## Практика',
+                        'Студентам нужно изучить теорию, выполнить упражнение и подготовить вопросы к занятию.',
                     ]),
                     'images' => [],
                     'is_published' => true,
@@ -172,15 +176,15 @@ class LargeDemoSeeder extends Seeder
     private function createTestsWithQuestions(array $courses, array $teachers): array
     {
         $tests = [];
-        $topics = ['Theory', 'Practice', 'Terminology', 'Problem solving', 'Case analysis'];
+        $topics = ['Теория', 'Практика', 'Терминология', 'Решение задач', 'Разбор кейсов'];
 
         foreach ($courses as $courseIndex => $course) {
             for ($testIndex = 1; $testIndex <= 4; $testIndex++) {
                 $test = Test::create([
                     'course_id' => $course->id,
                     'author_id' => $teachers[$courseIndex % count($teachers)]->id,
-                    'title' => sprintf('Demo test %02d for %s', $testIndex, Str::after($course->title, '[DEMO] ')),
-                    'description' => 'Published demo test with generated questions and answers.',
+                    'title' => sprintf('Контрольный тест %02d: %s', $testIndex, Str::after($course->title, '[ДЕМО] ')),
+                    'description' => 'Опубликованный демонстрационный тест с вопросами и вариантами ответов.',
                     'time_limit' => 35 + ($testIndex * 5),
                     'attempts_limit' => 3,
                     'is_published' => true,
@@ -190,7 +194,7 @@ class LargeDemoSeeder extends Seeder
                 for ($questionIndex = 1; $questionIndex <= 8; $questionIndex++) {
                     $question = Question::create([
                         'test_id' => $test->id,
-                        'question_text' => sprintf('Question %02d for %s', $questionIndex, $test->title),
+                        'question_text' => sprintf('Вопрос %02d по теме "%s"', $questionIndex, $test->title),
                         'topic' => $topics[($questionIndex + $testIndex) % count($topics)],
                         'question_type' => 'single',
                         'points' => 1,
@@ -199,7 +203,7 @@ class LargeDemoSeeder extends Seeder
                     for ($answerIndex = 1; $answerIndex <= 4; $answerIndex++) {
                         Answer::create([
                             'question_id' => $question->id,
-                            'answer_text' => sprintf('Answer option %d', $answerIndex),
+                            'answer_text' => sprintf('Вариант ответа %d', $answerIndex),
                             'is_correct' => $answerIndex === (($questionIndex % 4) + 1),
                         ]);
                     }
@@ -214,8 +218,8 @@ class LargeDemoSeeder extends Seeder
 
     private function createStudents(array $groups, array $courses): array
     {
-        $firstNames = ['Alexey', 'Maria', 'Ivan', 'Sofia', 'Nikita', 'Daria', 'Pavel', 'Alina', 'Kirill', 'Polina'];
-        $lastNames = ['Smirnov', 'Ivanova', 'Kuznetsov', 'Sokolova', 'Popov', 'Volkova', 'Morozov', 'Novikova'];
+        $firstNames = ['Алексей', 'Мария', 'Иван', 'София', 'Никита', 'Дарья', 'Павел', 'Алина', 'Кирилл', 'Полина'];
+        $lastNames = ['Смирнов', 'Иванова', 'Кузнецов', 'Соколова', 'Попов', 'Волкова', 'Морозов', 'Новикова'];
         $goals = ['score_60', 'score_70', 'score_80', 'score_90'];
         $students = [];
 
@@ -318,8 +322,8 @@ class LargeDemoSeeder extends Seeder
                     'course_id' => $courses[($index + $ticketIndex) % count($courses)]->id,
                     'assigned_teacher_id' => $teachers[($index + $ticketIndex) % count($teachers)]->id,
                     'type' => $types[($index + $ticketIndex) % count($types)],
-                    'subject' => sprintf('Demo support request %03d-%d', $index + 1, $ticketIndex),
-                    'message' => 'Student asks for help with a topic, assignment or platform issue.',
+                    'subject' => sprintf('Демо-обращение студента %03d-%d', $index + 1, $ticketIndex),
+                    'message' => 'Студент просит помочь с темой, заданием или технической проблемой на платформе.',
                     'status' => $statuses[($index + $ticketIndex) % count($statuses)],
                     'created_at' => Carbon::now()->subDays(($index + $ticketIndex) % 35),
                     'updated_at' => Carbon::now()->subDays(($index + $ticketIndex) % 20),
@@ -340,7 +344,7 @@ class LargeDemoSeeder extends Seeder
             Message::create([
                 'sender_id' => $student->id,
                 'recipient_id' => $teacher->id,
-                'body' => 'Hello, I need feedback on my latest test attempt.',
+                'body' => 'Здравствуйте, мне нужна обратная связь по последней попытке прохождения теста.',
                 'is_read' => $index % 2 === 0,
                 'created_at' => Carbon::now()->subDays($index % 14),
                 'updated_at' => Carbon::now()->subDays($index % 14),
@@ -349,7 +353,7 @@ class LargeDemoSeeder extends Seeder
             Message::create([
                 'sender_id' => $teacher->id,
                 'recipient_id' => $student->id,
-                'body' => 'Please review the course material and try the practice test again.',
+                'body' => 'Пожалуйста, повторите материал курса и попробуйте пройти тренировочный тест еще раз.',
                 'is_read' => $index % 4 !== 0,
                 'created_at' => Carbon::now()->subDays(($index % 14) - 1)->max(Carbon::now()->subDays(13)),
                 'updated_at' => Carbon::now()->subDays(($index % 14) - 1)->max(Carbon::now()->subDays(13)),
@@ -366,9 +370,9 @@ class LargeDemoSeeder extends Seeder
 
             Notification::create([
                 'user_id' => $student->id,
-                'title' => 'New demo assignment',
-                'body' => 'A teacher published a new test for your course.',
-                'type' => 'assignment',
+                'title' => 'Новое демонстрационное задание',
+                'body' => 'Преподаватель опубликовал новый тест по вашему курсу.',
+                'type' => 'задание',
                 'related_user_id' => $teachers[$index % count($teachers)]->id,
                 'action_url' => '/tests',
                 'is_read' => $index % 4 === 0,
@@ -393,10 +397,10 @@ class LargeDemoSeeder extends Seeder
                         'teacher_id' => $teachers[($groupIndex + $slot) % count($teachers)]->id,
                         'class_group_id' => $group->id,
                         'course_id' => $courses[($groupIndex + $slot) % count($courses)]->id,
-                        'title' => sprintf('Demo lesson %s #%d', $group->name, $slot + 1),
-                        'description' => 'Scheduled demo lesson for calendar testing.',
+                        'title' => sprintf('Демо-занятие %s №%d', $group->name, $slot + 1),
+                        'description' => 'Запланированное демонстрационное занятие для проверки календаря.',
                         'type' => $types[($groupIndex + $slot) % count($types)],
-                        'location' => 'Room ' . (200 + $groupIndex + $slot),
+                        'location' => 'Аудитория ' . (200 + $groupIndex + $slot),
                         'starts_at' => $startsAt,
                         'ends_at' => $startsAt->copy()->addMinutes(90),
                     ]);
@@ -434,16 +438,16 @@ class LargeDemoSeeder extends Seeder
     {
         ActionLog::create([
             'user_id' => $admin->id,
-            'action' => 'demo.seed',
-            'description' => 'Large demo database was generated.',
+            'action' => 'Демо: генерация базы',
+            'description' => 'Сформирована большая демонстрационная база данных.',
             'ip_address' => '127.0.0.1',
         ]);
 
         foreach ($teachers as $teacher) {
             ActionLog::create([
                 'user_id' => $teacher->id,
-                'action' => 'demo.teacher.login',
-                'description' => 'Teacher opened the dashboard.',
+                'action' => 'Демо: вход преподавателя',
+                'description' => 'Преподаватель открыл панель управления.',
                 'ip_address' => '127.0.0.1',
             ]);
         }
@@ -451,8 +455,8 @@ class LargeDemoSeeder extends Seeder
         foreach (array_slice($students, 0, 40) as $student) {
             ActionLog::create([
                 'user_id' => $student->id,
-                'action' => 'demo.student.activity',
-                'description' => 'Student completed demo learning activity.',
+                'action' => 'Демо: активность студента',
+                'description' => 'Студент выполнил демонстрационную учебную активность.',
                 'ip_address' => '127.0.0.1',
             ]);
         }
