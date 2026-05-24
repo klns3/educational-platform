@@ -492,6 +492,14 @@ def save_cached_model(path: Path, signature: str, model) -> None:
     joblib.dump({"signature": signature, "model": model}, path)
 
 
+def try_save_cached_model(path: Path, signature: str, model) -> tuple[bool, str | None]:
+    try:
+        save_cached_model(path, signature, model)
+        return True, None
+    except Exception as exception:
+        return False, str(exception)
+
+
 def confusion_matrix_payload(y_true, y_pred) -> list[dict]:
     matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
 
@@ -604,14 +612,17 @@ def classify_risk(
         if classifier is None:
             classifier = DecisionTreeClassifier(max_depth=4, min_samples_leaf=2, random_state=42)
             classifier.fit(training_features, training_target)
-            save_cached_model(RISK_MODEL_PATH, signature, classifier)
-            model_cache_status = "trained"
+            cached, cache_error = try_save_cached_model(RISK_MODEL_PATH, signature, classifier)
+            model_cache_status = "trained" if cached else "trained_not_cached"
+        else:
+            cache_error = None
 
         metrics["feature_importance"] = feature_importance_payload(classifier)
         metrics["model_cache"] = {
             "risk_classifier": {
                 "path": str(RISK_MODEL_PATH),
                 "status": model_cache_status,
+                "error": cache_error,
             }
         }
 
@@ -700,8 +711,10 @@ def predict_success(
             if model is None:
                 model = LogisticRegression(max_iter=1000)
                 model.fit(training_features, success_target)
-                save_cached_model(SUCCESS_MODEL_PATH, signature, model)
-                model_cache_status = "trained"
+                cached, cache_error = try_save_cached_model(SUCCESS_MODEL_PATH, signature, model)
+                model_cache_status = "trained" if cached else "trained_not_cached"
+            else:
+                cache_error = None
 
             df["success_probability"] = (model.predict_proba(features)[:, 1] * 100).round().astype(int)
             df["prediction_method"] = "logistic_regression"
@@ -710,6 +723,7 @@ def predict_success(
                 "success_predictor": {
                     "path": str(SUCCESS_MODEL_PATH),
                     "status": model_cache_status,
+                    "error": cache_error,
                 }
             }
         except Exception:
