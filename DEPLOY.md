@@ -73,4 +73,35 @@ php artisan up
 php artisan ai:analytics-check
 ```
 
+## 3. Большая демо-база для проверки преподавателем
+
+Seeder создает отдельные демо-данные и не удаляет реальные записи. Он пересоздает
+только пользователей `demo.*@example.com`, группы `DEMO-*`, курсы `[DEMO] *` и
+связанные с ними тестовые данные.
+
+Запуск на сервере:
+
+```bash
+cd /var/www/lms
+php artisan db:seed --class=LargeDemoSeeder --force
+php artisan optimize:clear
+```
+
+Демо-входы:
+
+```text
+Администратор: demo.admin@example.com / password
+Преподаватель: demo.teacher01@example.com / password
+Студент: demo.student001@example.com / password
+```
+
+Что создается:
+
+- 1 администратор, 4 преподавателя, 160 студентов;
+- 8 учебных групп;
+- 12 курсов;
+- 72 материала;
+- 48 тестов с вопросами и вариантами ответов;
+- история попыток, ответов, обращений, сообщений, уведомлений, расписания и логов.
+
 Важно: не загружай на GitHub `.env`, `vendor`, `node_modules`, `storage` с пользовательскими файлами, локальные базы и временные output-файлы.
