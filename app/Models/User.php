@@ -23,6 +23,7 @@ class User extends Authenticatable
         'role',
         'avatar',
         'class_group_id',
+        'learning_goal',
     ];
 
     protected $hidden = [

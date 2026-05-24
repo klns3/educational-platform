@@ -1,11 +1,6 @@
 <x-guest-layout>
     <div class="min-h-screen bg-[#f6f8fc] text-slate-950 transition-colors duration-300 dark:bg-[#07111f] dark:text-white">
         <div class="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-            <div class="pointer-events-none absolute inset-0 hidden dark:block">
-                <div class="absolute left-[15%] top-0 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl"></div>
-                <div class="absolute right-[10%] top-24 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl"></div>
-                <div class="absolute bottom-0 left-1/2 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"></div>
-            </div>
 
             <div class="relative w-full max-w-md rounded-[2rem] border border-white bg-white p-8 shadow-xl shadow-slate-200/70 dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none">
                 <p class="mb-4 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200">

@@ -3,6 +3,7 @@
         'system' => 'Учебная система',
         'dashboard' => 'Панель',
         'courses' => 'Курсы',
+        'curator' => 'Цифровой куратор',
         'schedule' => 'Расписание',
         'results' => 'Результаты',
         'messages' => 'Сообщения',
@@ -35,6 +36,24 @@
         ['route' => route('support-tickets.index'), 'active' => 'support-tickets.*', 'label' => $navLabels['tickets'], 'icon' => 'tickets'],
     ];
 
+    if (Auth::user()->role === 'student') {
+        array_splice($mainNavItems, 2, 0, [[
+            'route' => route('digital-curator.index'),
+            'active' => 'digital-curator.*',
+            'label' => $navLabels['curator'],
+            'icon' => 'curator',
+        ]]);
+    }
+
+    if (in_array(Auth::user()->role, ['admin', 'teacher'], true)) {
+        array_splice($mainNavItems, 2, 0, [[
+            'route' => route('teacher-curator.index'),
+            'active' => 'teacher-curator.*',
+            'label' => $navLabels['curator'],
+            'icon' => 'curator',
+        ]]);
+    }
+
     if (in_array(Auth::user()->role, ['admin', 'teacher'], true)) {
         $mainNavItems[] = ['route' => route('ai-analytics.index'), 'active' => 'ai-analytics.*', 'label' => $navLabels['ai'], 'icon' => 'ai'];
     }
@@ -51,7 +70,7 @@
      class="app-navigation-shell sticky top-0 z-40 border-b border-white/60 bg-white/70 backdrop-blur-2xl transition-all duration-300 dark:border-white/10 dark:bg-[#07111f] lg:h-screen lg:shrink-0 lg:border-b-0 lg:!bg-transparent lg:p-3 lg:!backdrop-blur-none">
     <div class="app-navigation-panel mx-auto max-w-7xl px-4 sm:px-6 lg:mx-0 lg:flex lg:h-full lg:max-w-none lg:flex-col lg:rounded-[1.75rem] lg:border lg:border-white/70 lg:bg-white/[0.42] lg:p-4 lg:shadow-[0_24px_70px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.72)] lg:backdrop-blur-2xl lg:dark:border-white/10 lg:dark:bg-white/[0.07] lg:dark:shadow-[0_24px_70px_rgba(2,8,23,0.32),inset_0_1px_0_rgba(255,255,255,0.10)]">
         <div class="flex h-16 justify-between lg:h-full lg:flex-col lg:items-stretch">
-            <div class="flex items-center gap-6 lg:flex-col lg:items-stretch lg:gap-6">
+            <div class="flex items-center gap-6 lg:min-h-0 lg:flex-1 lg:flex-col lg:items-stretch lg:gap-6">
                 <div class="flex items-center justify-between gap-3">
                 <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 font-bold text-white shadow-lg shadow-blue-600/20">
@@ -73,7 +92,7 @@
                 </button>
                 </div>
 
-                <div class="hidden lg:block">
+                <div class="app-navigation-scroll hidden lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1 lg:block">
                     <p class="mb-2 px-3 text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Основное</p>
 
                     <div class="grid gap-1">
@@ -82,6 +101,7 @@
 
                             <a href="{{ $item['route'] }}"
                                @if($item['messages'] ?? false) data-messages-count-url="{{ route('messages.unread-count') }}" @endif
+                               @if(($item['icon'] ?? null) === 'ai') data-ai-analytics-loader @endif
                                class="relative flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-bold transition {{ $isActive ? 'border border-blue-500/25 bg-white/[0.7] text-blue-700 shadow-[inset_0_1px_0_rgba(255,255,255,0.62),0_12px_28px_rgba(37,99,235,0.10)] dark:border-white/15 dark:bg-white/[0.08] dark:text-white dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_28px_rgba(2,8,23,0.18)]' : 'text-slate-600 hover:bg-white/[0.65] hover:text-slate-950 dark:text-slate-300 dark:hover:bg-white/[0.07] dark:hover:text-white' }}">
                                 <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl {{ $isActive ? 'bg-blue-600 text-white dark:bg-blue-500 dark:text-white' : 'bg-slate-900/5 text-slate-500 dark:bg-white/[0.06] dark:text-slate-400' }}">
                                     @switch($item['icon'])
@@ -102,6 +122,9 @@
                                             @break
                                         @case('ai')
                                             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v3m0 12v3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12M3 12h3m12 0h3M5.64 18.36l2.12-2.12m8.48-8.48 2.12-2.12M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z"/></svg>
+                                            @break
+                                        @case('curator')
+                                            <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Zm0 5v5l3 2m-6 0 3-2"/></svg>
                                             @break
                                         @default
                                             <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6M4 6l6 6-6 6"/></svg>
@@ -280,12 +303,18 @@
                 <div class="grid gap-2">
                     <a href="{{ route('dashboard') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('dashboard*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['dashboard'] }}</a>
                     <a href="{{ route('courses.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('courses.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['courses'] }}</a>
+                    @if(Auth::user()->role === 'student')
+                        <a href="{{ route('digital-curator.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('digital-curator.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['curator'] }}</a>
+                    @endif
+                    @if(in_array(Auth::user()->role, ['admin', 'teacher'], true))
+                        <a href="{{ route('teacher-curator.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('teacher-curator.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['curator'] }}</a>
+                    @endif
                     <a href="{{ route('schedule.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('schedule.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['schedule'] }}</a>
                     <a href="{{ route('results.my') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('results.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['results'] }}</a>
                     <a href="{{ route('messages.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('messages.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['messages'] }}</a>
                     <a href="{{ route('support-tickets.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('support-tickets.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['tickets'] }}</a>
                     @if(in_array(Auth::user()->role, ['admin', 'teacher'], true))
-                        <a href="{{ route('ai-analytics.index') }}" class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('ai-analytics.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['ai'] }}</a>
+                        <a href="{{ route('ai-analytics.index') }}" data-ai-analytics-loader class="rounded-2xl px-4 py-3 text-sm {{ request()->routeIs('ai-analytics.*') ? 'glass-chip text-slate-950 dark:text-white' : 'text-slate-700 hover:bg-white/70 dark:text-slate-300 dark:hover:bg-white/[0.08]' }}">{{ $navLabels['ai'] }}</a>
                     @endif
 
                     @if(Auth::user()->role === 'admin')

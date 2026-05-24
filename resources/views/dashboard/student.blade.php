@@ -20,14 +20,9 @@
 
     <div class="min-h-screen bg-[#f6f8fc] text-slate-950 transition-colors duration-300 dark:bg-[#07111f] dark:text-white">
         <div class="relative overflow-hidden">
-            <div class="pointer-events-none absolute inset-0 hidden dark:block">
-                <div class="absolute left-[18%] top-0 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl"></div>
-                <div class="absolute right-0 top-10 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl"></div>
-                <div class="absolute bottom-0 left-1/2 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"></div>
-            </div>
 
             <div class="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
-                <section class="mb-7 grid gap-6 lg:grid-cols-[1fr_310px]">
+                <section class="mb-7 grid gap-6 lg:grid-cols-[1fr_310px] lg:items-start">
                     <div>
                         <p class="mb-4 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700 dark:border-blue-400/20 dark:bg-blue-500/10 dark:text-blue-200">
                             Кабинет ученика
@@ -38,11 +33,38 @@
                         </h1>
 
                         <p class="mt-3 max-w-2xl text-sm font-semibold text-slate-500 sm:text-base dark:text-slate-300">
-                            Продолжай учиться, проходить тесты и собирать сильные результаты. Без воды — только прогресс.
+                            Продолжай учиться, проходить тесты и собирать сильные результаты.
                         </p>
+
+                        <div class="mt-6 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div class="glass-chip rounded-2xl px-4 py-3">
+                                <p class="text-xs font-black text-slate-500 dark:text-slate-400">Прогресс</p>
+                                <p class="mt-1 text-lg font-black text-slate-950 dark:text-white">{{ $progressPercent }}%</p>
+                            </div>
+
+                            <div class="glass-chip rounded-2xl px-4 py-3">
+                                <p class="text-xs font-black text-slate-500 dark:text-slate-400">Серия</p>
+                                <p class="mt-1 text-lg font-black text-slate-950 dark:text-white">{{ $currentStreak }} дн.</p>
+                            </div>
+
+                            <div class="glass-chip rounded-2xl px-4 py-3">
+                                <p class="text-xs font-black text-slate-500 dark:text-slate-400">Заявки</p>
+                                <p class="mt-1 text-lg font-black text-slate-950 dark:text-white">{{ $openTicketsCount }}</p>
+                            </div>
+                        </div>
                     </div>
 
+                    <div class="glass-panel rounded-[1.2rem] p-4">
+                        <p class="text-sm font-bold text-slate-500 dark:text-slate-400">Персональный план</p>
+                        <h2 class="mt-1 text-2xl font-black text-slate-950 dark:text-white">Цифровой куратор</h2>
+                        <p class="mt-2 text-sm font-semibold leading-5 text-slate-500 dark:text-slate-400">
+                            Проверь приоритетные тесты, материалы для повторения и ближайшие учебные шаги.
+                        </p>
 
+                        <a href="{{ route('digital-curator.index') }}" class="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">
+                            Открыть куратора
+                        </a>
+                    </div>
                 </section>
 
                 <section class="mb-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
@@ -258,6 +280,10 @@
 
                             <a href="{{ route('support-tickets.index') }}" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-400 hover:text-blue-600 dark:border-white/10 dark:text-slate-200">
                                 Мои заявки: {{ $openTicketsCount }}
+                            </a>
+
+                            <a href="{{ route('digital-curator.index') }}" class="rounded-2xl border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:border-blue-400 hover:text-blue-600 dark:border-white/10 dark:text-slate-200">
+                                Цифровой куратор
                             </a>
                         </div>
                     </div>

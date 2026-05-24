@@ -9,6 +9,7 @@ class Question extends Model
     protected $fillable = [
         'test_id',
         'question_text',
+        'topic',
         'question_type',
         'points',
     ];

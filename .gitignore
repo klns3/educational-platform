@@ -39,3 +39,25 @@ output.txt
 .env
 .idea
 .vscode
+/ai/__pycache__/
+/ai/models/*.joblib
+
+# Python / AI runtime artifacts
+__pycache__/
+*.py[cod]
+/.venv/
+/venv/
+/ai/models/
+/ai/results/
+/storage/app/ai/input/
+/storage/app/ai/output/
+/storage/app/ai/check/
+
+# Local diagnostic output
+/output_parts/
+/output_cookies.txt
+/output_headers.txt
+
+# Local databases
+*.sqlite
+*.sqlite-journal

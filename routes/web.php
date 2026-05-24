@@ -77,6 +77,22 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('role:student')
         ->name('dashboard.student');
 
+    Route::get('/digital-curator', [DashboardController::class, 'digitalCurator'])
+        ->middleware('role:student')
+        ->name('digital-curator.index');
+
+    Route::post('/digital-curator/goal', [DashboardController::class, 'updateLearningGoal'])
+        ->middleware('role:student')
+        ->name('digital-curator.goal.update');
+
+    Route::post('/digital-curator/help-request', [DashboardController::class, 'requestCuratorHelp'])
+        ->middleware('role:student')
+        ->name('digital-curator.help-request');
+
+    Route::get('/teacher/digital-curator', [DashboardController::class, 'teacherDigitalCurator'])
+        ->middleware('role:admin,teacher')
+        ->name('teacher-curator.index');
+
     /*
     |--------------------------------------------------------------------------
     | Admin

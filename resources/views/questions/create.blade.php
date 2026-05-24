@@ -1,11 +1,6 @@
 <x-app-layout>
     <div class="min-h-screen bg-[#f6f8fc] text-slate-950 transition-colors duration-300 dark:bg-[#07111f] dark:text-white">
         <div class="relative overflow-hidden">
-            <div class="pointer-events-none absolute inset-0 hidden dark:block">
-                <div class="absolute left-[16%] top-0 h-80 w-80 rounded-full bg-blue-600/20 blur-3xl"></div>
-                <div class="absolute right-0 top-10 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl"></div>
-                <div class="absolute bottom-0 left-1/2 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl"></div>
-            </div>
 
             <div class="relative mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
                 <section class="mb-7">
@@ -43,6 +38,18 @@
                                       rows="4"
                                       class="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
                                       required>{{ old('question_text') }}</textarea>
+                        </div>
+
+                        <div>
+                            <label class="mb-2 block text-sm font-black text-slate-700 dark:text-slate-200">
+                                Тема вопроса
+                            </label>
+
+                            <input type="text"
+                                   name="topic"
+                                   value="{{ old('topic') }}"
+                                   placeholder="Например: функции, циклы, базы данных"
+                                   class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-950 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-4 focus:ring-blue-500/10 dark:border-white/10 dark:bg-white/[0.04] dark:text-white">
                         </div>
 
                         <div class="grid gap-5 md:grid-cols-2">

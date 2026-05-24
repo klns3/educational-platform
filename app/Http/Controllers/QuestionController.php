@@ -41,6 +41,7 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => ['required', 'string'],
+            'topic' => ['nullable', 'string', 'max:120'],
             'question_type' => ['required', 'in:single,multiple,text'],
             'points' => ['required', 'integer', 'min:1'],
             'answers' => ['nullable', 'array'],
@@ -52,6 +53,7 @@ class QuestionController extends Controller
         $question = Question::create([
             'test_id' => $test->id,
             'question_text' => $request->question_text,
+            'topic' => $request->topic,
             'question_type' => $request->question_type,
             'points' => $request->points,
         ]);
@@ -84,6 +86,7 @@ class QuestionController extends Controller
 
         $request->validate([
             'question_text' => ['required', 'string'],
+            'topic' => ['nullable', 'string', 'max:120'],
             'question_type' => ['required', 'in:single,multiple,text'],
             'points' => ['required', 'integer', 'min:1'],
             'answers' => ['nullable', 'array'],
@@ -97,6 +100,7 @@ class QuestionController extends Controller
 
         $question->update([
             'question_text' => $request->question_text,
+            'topic' => $request->topic,
             'question_type' => $request->question_type,
             'points' => $request->points,
         ]);

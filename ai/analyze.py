@@ -1,13 +1,15 @@
 import json
+import hashlib
 import sys
 from pathlib import Path
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_recall_fscore_support
+from sklearn.model_selection import StratifiedKFold, cross_val_score, train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.tree import DecisionTreeClassifier
 
@@ -24,6 +26,12 @@ CLUSTER_DESCRIPTIONS = {
     "successful_low_activity": "Успешные, но недостаточно активные",
     "passive_problematic": "Пассивные или проблемные студенты",
 }
+
+AI_DIR = Path(__file__).resolve().parent
+TRAINING_DATASET_PATH = AI_DIR / "datasets" / "student_training.csv"
+MODELS_DIR = AI_DIR / "models"
+RISK_MODEL_PATH = MODELS_DIR / "risk_classifier.joblib"
+SUCCESS_MODEL_PATH = MODELS_DIR / "success_predictor.joblib"
 
 
 def load_json(path: str) -> dict:
@@ -48,10 +56,22 @@ def empty_model_quality(students_count: int, explanation: str) -> dict:
         "mode": "expert",
         "students_count": students_count,
         "samples_count": students_count,
+        "training_samples_count": students_count,
         "accuracy": None,
         "precision": None,
         "recall": None,
         "f1_score": None,
+        "cv_accuracy_mean": None,
+        "cv_accuracy_std": None,
+        "cv_folds": 0,
+        "confusion_matrix": [],
+        "feature_columns": feature_metadata(),
+        "feature_importance": [],
+        "data_sources": [],
+        "model_cache": {
+            "risk_classifier": None,
+            "success_predictor": None,
+        },
         "explanation": explanation,
     }
 
@@ -218,19 +238,95 @@ def recommendation(row) -> str:
     return "Студент показывает стабильную учебную динамику. Рекомендуется продолжать текущий формат сопровождения."
 
 
-def model_quality(mode: str, df: pd.DataFrame, metrics: dict | None = None) -> dict:
+def risk_factors(row) -> list[dict]:
+    factors = []
+
+    if float(row["completion_percent"]) < 50:
+        factors.append({
+            "factor": "Низкая завершённость",
+            "value": f"{float(row['completion_percent']):.1f}%",
+            "impact": "Не выполнена значительная часть назначенных тестов.",
+        })
+
+    if int(row["days_since_last_attempt"]) > 14:
+        factors.append({
+            "factor": "Долгая неактивность",
+            "value": f"{int(row['days_since_last_attempt'])} дн.",
+            "impact": "Давно не было учебных попыток.",
+        })
+
+    if float(row["score_trend"]) < -10:
+        factors.append({
+            "factor": "Отрицательная динамика",
+            "value": f"{float(row['score_trend']):.1f} п.п.",
+            "impact": "Последние результаты ниже ранних попыток.",
+        })
+
+    if float(row["average_percent"]) < 70:
+        factors.append({
+            "factor": "Низкий средний результат",
+            "value": f"{float(row['average_percent']):.1f}%",
+            "impact": "Среднее выполнение ниже целевого порога.",
+        })
+
+    if int(row["failed_attempts_count"]) >= 2:
+        factors.append({
+            "factor": "Неуспешные попытки",
+            "value": str(int(row["failed_attempts_count"])),
+            "impact": "Есть повторяющиеся неудачные прохождения тестов.",
+        })
+
+    if int(row["support_tickets_count"]) >= 3:
+        factors.append({
+            "factor": "Частые обращения",
+            "value": str(int(row["support_tickets_count"])),
+            "impact": "Возможны методические или технические затруднения.",
+        })
+
+    if not factors:
+        factors.append({
+            "factor": "Критичных факторов нет",
+            "value": "норма",
+            "impact": "Показатели не выходят за риск-пороги.",
+        })
+
+    return factors
+
+
+def model_quality(
+    mode: str,
+    df: pd.DataFrame,
+    training_dataset: pd.DataFrame,
+    metrics: dict | None = None,
+) -> dict:
     if mode == "ml" and metrics is not None:
         return {
             "mode": "ml",
             "students_count": int(len(df)),
-            "samples_count": int(len(df)),
-            "accuracy": metrics["accuracy"],
-            "precision": metrics["precision"],
-            "recall": metrics["recall"],
-            "f1_score": metrics["f1_score"],
+            "samples_count": int(len(training_dataset)),
+            "training_samples_count": int(len(training_dataset)),
+            "accuracy": metrics.get("accuracy"),
+            "precision": metrics.get("precision"),
+            "recall": metrics.get("recall"),
+            "f1_score": metrics.get("f1_score"),
+            "cv_accuracy_mean": metrics.get("cv_accuracy_mean"),
+            "cv_accuracy_std": metrics.get("cv_accuracy_std"),
+            "cv_folds": metrics.get("cv_folds", 0),
+            "confusion_matrix": metrics.get("confusion_matrix", []),
+            "feature_columns": feature_metadata(),
+            "feature_importance": metrics.get("feature_importance", []),
+            "data_sources": [
+                {
+                    "name": "training_dataset",
+                    "label": "Обезличенная обучающая выборка",
+                    "count": int(len(training_dataset)),
+                },
+            ],
+            "model_cache": metrics.get("model_cache", {}),
             "explanation": (
-                "Используется ML-режим: риск классифицируется деревом решений, обученным на учебной "
-                "многофакторной разметке. Метрики рассчитаны на отложенной части текущей выборки."
+                "Используется ML-режим: риск классифицируется деревом решений, модель обучается на обезличенной "
+                "обучающей выборке. Обученные модели сохраняются в joblib-файлы и переиспользуются, пока не меняется "
+                "состав обучающих данных."
             ),
         }
 
@@ -278,6 +374,44 @@ def prepare_students_frame(students: list) -> pd.DataFrame:
     return df
 
 
+def prepare_training_frame(dataset: pd.DataFrame) -> pd.DataFrame:
+    """
+    Подготовка обучающего датасета.
+
+    Файл ai/datasets/student_training.csv содержит дополнительную обучающую выборку.
+    Она нужна для устойчивого ML-контура в условиях, когда в системе ещё мало
+    накопленных исторических записей.
+    """
+    df = dataset.copy()
+
+    for column in feature_columns() + ["risk_label"]:
+        if column not in df.columns:
+            df[column] = 0
+
+        df[column] = pd.to_numeric(df[column], errors="coerce").fillna(0)
+
+    df["risk_label"] = df["risk_label"].clip(0, 2).astype(int)
+
+    return df
+
+
+def load_training_dataset() -> pd.DataFrame | None:
+    if not TRAINING_DATASET_PATH.exists():
+        return None
+
+    try:
+        dataset = pd.read_csv(TRAINING_DATASET_PATH)
+        dataset = prepare_training_frame(dataset)
+        dataset["source"] = "training_dataset"
+
+        if dataset.empty:
+            return None
+
+        return dataset
+    except Exception:
+        return None
+
+
 def feature_columns() -> list[str]:
     return [
         "average_percent",
@@ -291,21 +425,154 @@ def feature_columns() -> list[str]:
     ]
 
 
-def classify_risk(df: pd.DataFrame, features: pd.DataFrame) -> tuple[pd.DataFrame, dict]:
-    enough_samples = len(df) >= 8
-    enough_classes = df["training_risk_label"].nunique() >= 2
+def feature_metadata() -> list[dict]:
+    labels = {
+        "average_percent": "Средний процент выполнения",
+        "attempts_count": "Количество попыток",
+        "completion_percent": "Завершённость назначенных тестов",
+        "days_since_last_attempt": "Дней с последней попытки",
+        "support_tickets_count": "Обращения в поддержку",
+        "failed_attempts_count": "Неуспешные попытки",
+        "score_trend": "Динамика результата",
+        "activity_score": "Индекс активности",
+    }
+
+    return [{"name": column, "label": labels[column]} for column in feature_columns()]
+
+
+def build_real_training_dataset(df: pd.DataFrame) -> pd.DataFrame:
+    real_dataset = df[feature_columns()].copy()
+    real_dataset["risk_label"] = df["training_risk_label"].clip(0, 2).astype(int)
+    real_dataset["source"] = "training_dataset"
+
+    return real_dataset.drop_duplicates(subset=feature_columns() + ["risk_label"])
+
+
+def build_training_dataset(df: pd.DataFrame) -> pd.DataFrame | None:
+    frames = [build_real_training_dataset(df)]
+    static_dataset = load_training_dataset()
+
+    if static_dataset is not None:
+        frames.append(static_dataset)
+
+    dataset = pd.concat(frames, ignore_index=True)
+    dataset = prepare_training_frame(dataset)
+
+    if "source" not in dataset.columns:
+        dataset["source"] = "training_dataset"
+
+    return dataset if not dataset.empty else None
+
+
+def training_signature(training_features: pd.DataFrame, training_target: pd.Series) -> str:
+    payload = training_features.copy()
+    payload["risk_label"] = training_target.astype(int).values
+    payload = payload.sort_values(feature_columns() + ["risk_label"]).reset_index(drop=True)
+
+    return hashlib.sha256(payload.to_json(orient="records").encode("utf-8")).hexdigest()
+
+
+def load_cached_model(path: Path, signature: str):
+    if not path.exists():
+        return None
+
+    try:
+        payload = joblib.load(path)
+    except Exception:
+        return None
+
+    if not isinstance(payload, dict) or payload.get("signature") != signature:
+        return None
+
+    return payload.get("model")
+
+
+def save_cached_model(path: Path, signature: str, model) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"signature": signature, "model": model}, path)
+
+
+def confusion_matrix_payload(y_true, y_pred) -> list[dict]:
+    matrix = confusion_matrix(y_true, y_pred, labels=[0, 1, 2])
+
+    return [
+        {
+            "actual": risk_name(label),
+            "predicted": {
+                risk_name(predicted_label): int(matrix[index][predicted_index])
+                for predicted_index, predicted_label in enumerate([0, 1, 2])
+            },
+        }
+        for index, label in enumerate([0, 1, 2])
+    ]
+
+
+def cross_validation_metrics(training_features: pd.DataFrame, training_target: pd.Series) -> dict:
+    min_class_count = int(training_target.value_counts().min())
+    folds = min(5, min_class_count)
+
+    if folds < 2:
+        return {
+            "cv_accuracy_mean": None,
+            "cv_accuracy_std": None,
+            "cv_folds": 0,
+        }
+
+    model = DecisionTreeClassifier(max_depth=4, min_samples_leaf=2, random_state=42)
+    splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
+    scores = cross_val_score(model, training_features, training_target, cv=splitter, scoring="accuracy")
+
+    return {
+        "cv_accuracy_mean": round(float(np.mean(scores)), 4),
+        "cv_accuracy_std": round(float(np.std(scores)), 4),
+        "cv_folds": int(folds),
+    }
+
+
+def feature_importance_payload(classifier: DecisionTreeClassifier) -> list[dict]:
+    return sorted(
+        [
+            {
+                "name": column,
+                "label": metadata["label"],
+                "importance": round(float(classifier.feature_importances_[index]), 4),
+            }
+            for index, (column, metadata) in enumerate(zip(feature_columns(), feature_metadata()))
+        ],
+        key=lambda item: item["importance"],
+        reverse=True,
+    )
+
+
+def classify_risk(
+    df: pd.DataFrame,
+    features: pd.DataFrame,
+    training_dataset: pd.DataFrame | None,
+) -> tuple[pd.DataFrame, dict]:
+    if training_dataset is not None:
+        training_features = training_dataset[feature_columns()]
+        training_target = training_dataset["risk_label"]
+    else:
+        training_features = features
+        training_target = df["training_risk_label"]
+
+    enough_samples = len(training_features) >= 12
+    enough_classes = training_target.nunique() >= 2
 
     if not enough_samples or not enough_classes:
         df["risk_label"] = df["training_risk_label"]
-        return df, model_quality("expert", df)
+        return df, empty_model_quality(
+            len(df),
+            "Недостаточно данных или классов риска для устойчивого обучения модели. Используется экспертный режим на основе правил.",
+        )
 
-    y = df["training_risk_label"]
-    stratify = y if y.value_counts().min() >= 2 else None
+    stratify = training_target if training_target.value_counts().min() >= 2 else None
 
     try:
+        signature = training_signature(training_features, training_target)
         x_train, x_test, y_train, y_test = train_test_split(
-            features,
-            y,
+            training_features,
+            training_target,
             test_size=0.3,
             random_state=42,
             stratify=stratify,
@@ -327,15 +594,36 @@ def classify_risk(df: pd.DataFrame, features: pd.DataFrame) -> tuple[pd.DataFram
             "precision": round(float(precision), 4),
             "recall": round(float(recall), 4),
             "f1_score": round(float(f1), 4),
+            "confusion_matrix": confusion_matrix_payload(y_test, y_pred),
+            **cross_validation_metrics(training_features, training_target),
         }
 
-        classifier.fit(features, y)
+        classifier = load_cached_model(RISK_MODEL_PATH, signature)
+        model_cache_status = "loaded"
+
+        if classifier is None:
+            classifier = DecisionTreeClassifier(max_depth=4, min_samples_leaf=2, random_state=42)
+            classifier.fit(training_features, training_target)
+            save_cached_model(RISK_MODEL_PATH, signature, classifier)
+            model_cache_status = "trained"
+
+        metrics["feature_importance"] = feature_importance_payload(classifier)
+        metrics["model_cache"] = {
+            "risk_classifier": {
+                "path": str(RISK_MODEL_PATH),
+                "status": model_cache_status,
+            }
+        }
+
         df["risk_label"] = classifier.predict(features)
 
-        return df, model_quality("ml", df, metrics)
+        return df, model_quality("ml", df, training_dataset, metrics)
     except Exception:
         df["risk_label"] = df["training_risk_label"]
-        return df, model_quality("expert", df)
+        return df, empty_model_quality(
+            len(df),
+            "Не удалось обучить или загрузить ML-модель. Используется экспертный режим на основе правил.",
+        )
 
 
 def cluster_key(cluster_row) -> str:
@@ -391,22 +679,50 @@ def assign_clusters(df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def predict_success(df: pd.DataFrame, features: pd.DataFrame) -> pd.DataFrame:
-    success_target = (df["training_risk_label"] == 0).astype(int)
+def predict_success(
+    df: pd.DataFrame,
+    features: pd.DataFrame,
+    training_dataset: pd.DataFrame | None,
+) -> tuple[pd.DataFrame, dict]:
+    if training_dataset is not None:
+        training_features = training_dataset[feature_columns()]
+        success_target = (training_dataset["risk_label"] == 0).astype(int)
+    else:
+        training_features = features
+        success_target = (df["training_risk_label"] == 0).astype(int)
 
-    if len(df) >= 8 and success_target.nunique() >= 2:
+    if len(training_features) >= 12 and success_target.nunique() >= 2:
         try:
-            model = LogisticRegression(max_iter=1000)
-            model.fit(features, success_target)
+            signature = training_signature(training_features, success_target)
+            model = load_cached_model(SUCCESS_MODEL_PATH, signature)
+            model_cache_status = "loaded"
+
+            if model is None:
+                model = LogisticRegression(max_iter=1000)
+                model.fit(training_features, success_target)
+                save_cached_model(SUCCESS_MODEL_PATH, signature, model)
+                model_cache_status = "trained"
+
             df["success_probability"] = (model.predict_proba(features)[:, 1] * 100).round().astype(int)
             df["prediction_method"] = "logistic_regression"
-            return df
+
+            return df, {
+                "success_predictor": {
+                    "path": str(SUCCESS_MODEL_PATH),
+                    "status": model_cache_status,
+                }
+            }
         except Exception:
             pass
 
     df["success_probability"] = df.apply(expert_success_probability, axis=1)
     df["prediction_method"] = "expert_formula"
-    return df
+    return df, {
+        "success_predictor": {
+            "path": None,
+            "status": "expert_formula",
+        }
+    }
 
 
 def analyze_students(students: list) -> tuple[list, dict]:
@@ -415,10 +731,15 @@ def analyze_students(students: list) -> tuple[list, dict]:
 
     df = prepare_students_frame(students)
     features = df[feature_columns()]
+    training_dataset = build_training_dataset(df)
 
-    df, quality = classify_risk(df, features)
+    df, quality = classify_risk(df, features, training_dataset)
     df = assign_clusters(df, features)
-    df = predict_success(df, features)
+    df, success_cache = predict_success(df, features, training_dataset)
+    quality["model_cache"] = {
+        **quality.get("model_cache", {}),
+        **success_cache,
+    }
 
     result = []
 
@@ -455,6 +776,7 @@ def analyze_students(students: list) -> tuple[list, dict]:
             "cluster_description": str(row["cluster_description"]),
 
             "recommendation": recommendation(row),
+            "risk_factors": risk_factors(row),
         })
 
     return result, quality

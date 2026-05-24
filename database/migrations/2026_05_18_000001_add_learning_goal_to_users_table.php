@@ -6,31 +6,17 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
-    public function up()
+    public function up(): void
     {
-        if (Schema::hasColumn('users', 'avatar')) {
-            return;
-        }
-
         Schema::table('users', function (Blueprint $table) {
-            $table->string('avatar')->nullable();
+            $table->string('learning_goal')->default('score_80')->after('class_group_id');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        if (! Schema::hasColumn('users', 'avatar')) {
-            return;
-        }
-
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('avatar');
+            $table->dropColumn('learning_goal');
         });
     }
 };
